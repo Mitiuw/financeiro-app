@@ -40,6 +40,15 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   event.respondWith(
-    caches.match(req).then((cached) => cached || fetch(req))
+    caches.match(req).then((cached) => {
+      if (cached) return cached;
+      return fetch(req).then((res) => {
+        // cacheia dinamicamente scripts externos (Chart.js, Firebase) pra funcionar offline depois da 1ª visita
+        if (res && res.ok) {
+          caches.open(CACHE_NAME).then((cache) => cache.put(req, res.clone()));
+        }
+        return res;
+      });
+    })
   );
 });

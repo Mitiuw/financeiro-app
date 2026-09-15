@@ -15,6 +15,8 @@
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   @font-face{font-family:'Barlow Condensed Fallback';src:local('Arial Narrow');}
   :root{
@@ -124,6 +126,17 @@
   .save-btn:active{transform:translateY(1px);}
   .save-status{font-family:var(--mono); font-size:10px; color:var(--teal); letter-spacing:.04em; min-height:12px;}
 
+  /* ---- Barra de sincronização (Firebase) ---- */
+  .sync-bar{display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:16px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 14px;}
+  .sync-bar input{
+    flex:1; min-width:200px; background:var(--panel-2); border:1px solid var(--line); border-radius:6px;
+    color:var(--text); font-family:var(--mono); font-size:12.5px; padding:7px 10px;
+  }
+  .sync-bar input:focus{outline:none; border-color:var(--teal);}
+  .sync-dot{width:8px; height:8px; border-radius:50%; background:var(--muted); flex-shrink:0;}
+  .sync-dot.on{background:var(--teal); box-shadow:0 0 6px var(--teal);}
+  .sync-dot.err{background:var(--clay);}
+
   /* ---- Section sub-headers with add buttons ---- */
   .panel-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:4px;}
   .add-btn{
@@ -154,6 +167,13 @@
       </div>
     </div>
   </header>
+
+  <div class="sync-bar">
+    <span class="sync-dot" id="syncDot" title="Status da sincronização"></span>
+    <input type="text" id="syncCode" placeholder="Código de sincronização (ex: joao-financeiro-2026)" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <button id="btnSync" class="add-btn">🔗 Conectar</button>
+    <span id="syncStatus" class="save-status">&nbsp;</span>
+  </div>
 
   <div class="rail" id="monthRail"></div>
 
@@ -272,6 +292,125 @@ let INVEST_CATS = [
 
 const STORAGE_KEY = "dashboardFinanceiro_v1";
 
+// ======================================================================
+// SINCRONIZAÇÃO (Firebase Firestore) — grátis, entre iPhone/computador
+//
+// 1. Vá em https://console.firebase.google.com → crie um projeto grátis.
+// 2. No projeto, crie um "Firestore Database" (modo teste, mais fácil).
+// 3. Vá em ⚙️ Configurações do projeto → role até "Seus apps" → ícone </>
+//    → registre um app da Web → copie o objeto "firebaseConfig" abaixo.
+// 4. Substitua os valores de exemplo abaixo pelos seus.
+// ======================================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyAd74svdhAYedP366B43OUHCnIE2og7CV8",
+  authDomain: "aplicativo-financeiro-test.firebaseapp.com",
+  projectId: "aplicativo-financeiro-test",
+  storageBucket: "aplicativo-financeiro-test.firebasestorage.app",
+  messagingSenderId: "573742230803",
+  appId: "1:573742230803:web:bf1c9dda5501f7f8d1fee6"
+};
+
+let db = null;
+let syncCode = null;
+let syncUnsub = null;
+let lastPushedAt = null; // evita que nossa própria escrita "volte" como se fosse remota
+
+function firebaseReady(){
+  return firebaseConfig.apiKey && firebaseConfig.apiKey !== "COLE_SUA_API_KEY_AQUI";
+}
+
+function initFirebase(){
+  if(!firebaseReady()) return false;
+  try{
+    if(!firebase.apps || !firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    return true;
+  }catch(err){
+    console.error("Firebase init falhou:", err);
+    return false;
+  }
+}
+
+function setSyncDot(state){
+  // state: 'off' | 'on' | 'err'
+  const dot = document.getElementById('syncDot');
+  dot.classList.remove('on','err');
+  if(state==='on') dot.classList.add('on');
+  if(state==='err') dot.classList.add('err');
+}
+
+function connectSync(code){
+  if(!code || !code.trim()) return;
+  syncCode = code.trim();
+  localStorage.setItem("financeiro_syncCode", syncCode);
+
+  if(!initFirebase()){
+    flashSyncStatus("Preencha o firebaseConfig no código antes de conectar", 5000);
+    setSyncDot('err');
+    return;
+  }
+
+  if(syncUnsub) syncUnsub(); // cancela listener anterior, se houver
+
+  const ref = db.collection("financeiro_v1").doc(syncCode);
+  syncUnsub = ref.onSnapshot(
+    (doc) => {
+      setSyncDot('on');
+      if(!doc.exists){
+        // ainda não existe nada na nuvem para este código -> envia o que temos agora
+        pushToCloud();
+        return;
+      }
+      const cloud = doc.data();
+      if(!cloud.savedAt) return;
+      if(cloud.savedAt === lastPushedAt) return; // eco da nossa própria escrita
+      const cloudTime = new Date(cloud.savedAt).getTime();
+      const localTime = lastLocalSavedAt ? new Date(lastLocalSavedAt).getTime() : 0;
+      if(cloudTime > localTime){
+        // dados de outro dispositivo são mais recentes -> aplica aqui
+        params = cloud.params || params;
+        EXP_CATS = cloud.EXP_CATS || EXP_CATS;
+        INVEST_CATS = cloud.INVEST_CATS || INVEST_CATS;
+        state = cloud.state || state;
+        lastLocalSavedAt = cloud.savedAt;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({params, EXP_CATS, INVEST_CATS, state, currentMonth, savedAt: cloud.savedAt}));
+        buildMonthUI();
+        flashSaveStatus("Atualizado de outro dispositivo ✅", 3000);
+      }
+    },
+    (err) => {
+      console.error(err);
+      setSyncDot('err');
+      flashSyncStatus("Erro na sincronização — veja o console", 4000);
+    }
+  );
+  flashSyncStatus("Conectado — sincronizando automaticamente", 3000);
+}
+
+function pushToCloud(){
+  if(!syncCode || !db) return;
+  const now = new Date().toISOString();
+  lastPushedAt = now;
+  lastLocalSavedAt = now;
+  db.collection("financeiro_v1").doc(syncCode).set({
+    params, EXP_CATS, INVEST_CATS, state, currentMonth, savedAt: now
+  }).catch(err=>{
+    console.error("Erro ao enviar para a nuvem:", err);
+    setSyncDot('err');
+  });
+}
+
+let flashSyncTimer;
+function flashSyncStatus(msg, ms=2200){
+  const el = document.getElementById('syncStatus');
+  el.textContent = msg;
+  clearTimeout(flashSyncTimer);
+  flashSyncTimer = setTimeout(()=>{ el.textContent = "\u00A0"; }, ms);
+}
+
+let lastLocalSavedAt = null;
+
+
 function slugify(label){
   let base = label.toString().trim().toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
@@ -300,9 +439,12 @@ let currentMonth = 0;
 // ---- persistência (localStorage) ----
 function saveState(){
   try{
-    const payload = { params, EXP_CATS, INVEST_CATS, state, currentMonth, savedAt: new Date().toISOString() };
+    const now = new Date().toISOString();
+    const payload = { params, EXP_CATS, INVEST_CATS, state, currentMonth, savedAt: now };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    lastLocalSavedAt = now;
     flashSaveStatus("Salvo às " + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}));
+    pushToCloud();
   }catch(err){
     flashSaveStatus("Erro ao salvar");
     console.error(err);
@@ -327,6 +469,7 @@ function loadState(){
       if(!Array.isArray(m.compras)) m.compras = Array.from({length: m.weeks.length}, ()=>0);
     });
     if(data.savedAt){
+      lastLocalSavedAt = data.savedAt;
       const d = new Date(data.savedAt);
       flashSaveStatus("Carregado (salvo em " + d.toLocaleString('pt-BR') + ")", 4000);
     }
@@ -607,6 +750,16 @@ document.getElementById('pIva').value = params.iva*100;
 document.getElementById('pIrpf').value = params.irpf*100;
 document.getElementById('pDizimo').value = params.dizimo*100;
 buildMonthUI();
+
+// ---- sincronização (Firebase) ----
+document.getElementById('btnSync').addEventListener('click', ()=>{
+  connectSync(document.getElementById('syncCode').value);
+});
+const savedSyncCode = localStorage.getItem("financeiro_syncCode");
+if(savedSyncCode){
+  document.getElementById('syncCode').value = savedSyncCode;
+  connectSync(savedSyncCode);
+}
 
 // registra o service worker (funcionamento offline + instalação como app)
 if('serviceWorker' in navigator){
