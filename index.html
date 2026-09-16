@@ -2,7 +2,6 @@
 <html lang="pt-BR">
 <head>
 <script>
-  // aplica o tema o mais cedo possível, pra não "piscar" o tema errado ao carregar
   (function(){
     try{
       var saved = localStorage.getItem('financeiro_theme');
@@ -16,7 +15,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Financeiro</title>
 
-<!-- PWA: instalável na Tela de Início do iPhone -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
@@ -58,7 +56,6 @@
   }
   .wrap{max-width:980px; margin:0 auto; padding:0 20px 70px;}
 
-  /* ---- Top bar ---- */
   .topbar{
     position:sticky; top:0; z-index:20; backdrop-filter:saturate(180%) blur(20px);
     -webkit-backdrop-filter:saturate(180%) blur(20px); background:var(--nav-bg);
@@ -72,11 +69,10 @@
   .topbar-actions{display:flex; align-items:center; gap:10px;}
   .icon-btn{
     width:34px; height:34px; border-radius:50%; border:1px solid var(--border); background:var(--surface);
-    font-size:15px; display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
+    font-size:15px; font-family:var(--font); font-weight:600; color:var(--text); display:flex; align-items:center; justify-content:center; cursor:pointer; padding:0;
   }
   .icon-btn:hover{background:var(--surface-3);}
 
-  /* ---- Buttons ---- */
   .btn-primary{
     font-family:var(--font); font-size:14px; font-weight:600; letter-spacing:-.005em; color:#fff;
     background:var(--blue); border:none; border-radius:var(--radius-pill); padding:9px 18px; cursor:pointer; transition:filter .15s;
@@ -88,9 +84,9 @@
     background:transparent; border:1px solid var(--border); border-radius:var(--radius-pill); padding:6px 14px; cursor:pointer; white-space:nowrap;
   }
   .btn-ghost:hover{background:var(--surface-3);}
+  .btn-danger{color:var(--red); border-color:var(--red);}
   .save-status{font-size:11px; color:var(--text-secondary); min-height:14px; display:block; text-align:right; margin-top:4px;}
 
-  /* ---- Sync bar ---- */
   .sync-bar{
     display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:18px 0; background:var(--surface);
     border:1px solid var(--border); border-radius:var(--radius-md); padding:10px 14px; box-shadow:var(--shadow);
@@ -104,10 +100,10 @@
   .sync-dot.on{background:var(--green); box-shadow:0 0 6px var(--green);}
   .sync-dot.err{background:var(--red);}
 
-  /* ---- Segmented controls ---- */
+  .rail-row{display:flex; align-items:center; gap:8px; margin-bottom:10px; flex-wrap:wrap;}
   .segmented{
     display:inline-flex; background:var(--track); border-radius:var(--radius-pill); padding:3px; gap:2px;
-    margin-bottom:10px; max-width:100%; overflow-x:auto;
+    max-width:100%; overflow-x:auto;
   }
   .segmented button{
     font-family:var(--font); font-size:14px; font-weight:500; color:var(--text-secondary); background:transparent;
@@ -123,12 +119,13 @@
   .chip-rail button:hover{border-color:var(--blue);}
   .chip-rail button.active{background:var(--blue); color:#fff; border-color:var(--blue); font-weight:600;}
 
-  /* ---- Page header ---- */
+  .pick-chip{display:inline-flex; align-items:center; gap:6px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-pill); padding:7px 14px; font-size:13px; cursor:pointer;}
+  .pick-chip input{accent-color:var(--blue);}
+
   .page-header{margin:26px 0 22px;}
   .page-header h1{font-size:clamp(28px,4vw,38px); font-weight:600; letter-spacing:-.02em; margin:0 0 4px;}
   .page-header p{font-size:15px; color:var(--text-secondary); margin:0;}
 
-  /* ---- Stat cards ---- */
   .cluster{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:24px;}
   @media (max-width:760px){ .cluster{grid-template-columns:1fr;} }
   .stat-card{
@@ -140,7 +137,6 @@
   .stat-value{font-size:26px; font-weight:600; letter-spacing:-.01em; margin:0; font-variant-numeric:tabular-nums;}
   .stat-sub{font-size:11.5px; color:var(--text-secondary); margin:3px 0 0;}
 
-  /* ---- Panels ---- */
   .grid2{display:grid; grid-template-columns:1.1fr .9fr; gap:16px; margin-bottom:16px;}
   @media (max-width:860px){ .grid2{grid-template-columns:1fr;} }
   .panel{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:22px 24px; box-shadow:var(--shadow); margin-bottom:16px;}
@@ -189,9 +185,8 @@
   .row-del{background:transparent; border:none; color:var(--text-secondary); cursor:pointer; font-size:13px; line-height:1; padding:0 2px; margin-left:4px;}
   .row-del:hover{color:var(--red);}
 
-  /* ---- Painel do casal ---- */
-  #casalPanel table td:not(:first-child), #casalPanel table th:not(:first-child){text-align:right;}
-  #casalPanel table td:first-child{color:var(--text-secondary);}
+  #totalPanel table td:not(:first-child), #totalPanel table th:not(:first-child){text-align:right;}
+  #totalPanel table td:first-child{color:var(--text-secondary);}
 </style>
 </head>
 <body>
@@ -218,10 +213,9 @@
     <span id="syncStatus" class="save-status" style="margin-top:0;">&nbsp;</span>
   </div>
 
-  <div class="segmented" id="personRail" role="tablist">
-    <button data-person="matheus">Matheus</button>
-    <button data-person="eduarda">Eduarda</button>
-    <button data-person="casal">Casal</button>
+  <div class="rail-row">
+    <div class="segmented" id="personRail" role="tablist"></div>
+    <button class="icon-btn" id="btnAddPerson" title="Adicionar pessoa">+</button>
   </div>
 
   <div class="chip-rail" id="monthRail"></div>
@@ -229,8 +223,9 @@
   <div class="page-header">
     <div style="display:flex; align-items:flex-end; justify-content:space-between; flex-wrap:wrap; gap:14px;">
       <div>
-        <h1 id="mainTitle">Matheus</h1>
+        <h1 id="mainTitle">—</h1>
         <p id="subTitle">Controle financeiro pessoal</p>
+        <button class="btn-ghost btn-danger" id="btnRemovePerson" style="margin-top:10px; display:none;">Remover esta pessoa</button>
       </div>
       <div style="text-align:right;">
         <p style="font-size:12.5px; color:var(--text-secondary); margin:0 0 2px;">Saldo acumulado no ano</p>
@@ -327,13 +322,11 @@
     </div>
   </div>
 
-  <div class="panel" id="casalPanel" style="display:none;">
-    <h2 id="casalTitle">Resumo do casal — Janeiro</h2>
-    <p class="hint">Soma dos ganhos e gastos de Matheus e Eduarda no mês selecionado.</p>
-    <table>
-      <thead><tr><th></th><th>Matheus</th><th>Eduarda</th><th>Casal</th></tr></thead>
-      <tbody id="casalBody"></tbody>
-    </table>
+  <div class="panel" id="totalPanel" style="display:none;">
+    <h2 id="totalTitle">Total combinado — Janeiro</h2>
+    <p class="hint">Escolha quem entra no cálculo abaixo.</p>
+    <div id="totalPicker" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px;"></div>
+    <div id="totalTableWrap"></div>
   </div>
 
   <div class="charts">
@@ -354,10 +347,7 @@
 
 <script>
 const MONTHS = ["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
-const WEEKS_IN_MONTH = [4,4,5,4,4,5,4,5,4,4,5,4]; // Mondays de 2026 por mês
-
-const PEOPLE = ["matheus","eduarda"];
-const PEOPLE_LABELS = {matheus:"Matheus", eduarda:"Eduarda"};
+const WEEKS_IN_MONTH = [4,4,5,4,4,5,4,5,4,4,5,4];
 
 function defaultExpCats(){
   return [
@@ -383,10 +373,11 @@ function freshPersonState(expCats, investCats){
     investimentos: Object.fromEntries(investCats.map(c=> [c.key, 0])),
   }));
 }
-function freshPerson(){
+function freshPerson(name){
   const EXP_CATS = defaultExpCats();
   const INVEST_CATS = defaultInvestCats();
   return {
+    name: name || "",
     params: {iva:0.21, irpf:0.07, dizimo:0.10},
     EXP_CATS,
     INVEST_CATS,
@@ -394,8 +385,9 @@ function freshPerson(){
   };
 }
 
-const STORAGE_KEY = "dashboardFinanceiro_v2";
-const STORAGE_KEY_LEGACY = "dashboardFinanceiro_v1";
+const STORAGE_KEY = "dashboardFinanceiro_v3";
+const STORAGE_KEY_V2 = "dashboardFinanceiro_v2";
+const STORAGE_KEY_V1 = "dashboardFinanceiro_v1";
 
 // ======================================================================
 // SINCRONIZAÇÃO (Firebase Firestore) — grátis, entre iPhone/computador
@@ -461,12 +453,8 @@ function connectSync(code){
       const cloudTime = new Date(norm.savedAt).getTime();
       const localTime = lastLocalSavedAt ? new Date(lastLocalSavedAt).getTime() : 0;
       if(cloudTime > localTime){
-        people = norm.people;
-        currentPerson = norm.currentPerson;
-        currentMonth = norm.currentMonth;
-        lastLocalSavedAt = norm.savedAt;
-        ensureShapes();
-        localStorage.setItem(STORAGE_KEY, JSON.stringify({people, currentPerson, currentMonth, savedAt: norm.savedAt}));
+        applyNormalized(norm);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({people, peopleOrder, selectedForTotal, currentPerson, currentMonth, savedAt: norm.savedAt}));
         buildUI();
         flashSaveStatus("Atualizado de outro dispositivo", 3000);
       }
@@ -485,7 +473,7 @@ function pushToCloud(){
   lastPushedAt = now;
   lastLocalSavedAt = now;
   db.collection("financeiro_v1").doc(syncCode).set({
-    people, currentPerson, currentMonth, savedAt: now
+    people, peopleOrder, selectedForTotal, currentPerson, currentMonth, savedAt: now
   }).catch(err=>{
     console.error("Erro ao enviar para a nuvem:", err);
     setSyncDot('err');
@@ -503,7 +491,7 @@ function slugify(label){
   let base = label.toString().trim().toLowerCase()
     .normalize("NFD").replace(/[\u0300-\u036f]/g,"")
     .replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"");
-  if(!base) base = "item";
+  if(!base) base = "pessoa";
   return base;
 }
 function uniqueKey(base, cats){
@@ -512,16 +500,24 @@ function uniqueKey(base, cats){
   while(keys.has(key)){ key = `${base}_${++n}`; }
   return key;
 }
+function uniquePersonId(base){
+  let id = base, n = 1;
+  while(people[id]){ id = `${base}_${++n}`; }
+  return id;
+}
 
 // ---- estado ----
-let people = { matheus: freshPerson(), eduarda: freshPerson() };
-let currentPerson = "matheus";
+let people = {};              // { id: {name, params, EXP_CATS, INVEST_CATS, state} }
+let peopleOrder = [];         // ordem de criação das pessoas
+let selectedForTotal = [];    // ids incluídos no cálculo "Total"
+let currentPerson = "total";  // id de uma pessoa, ou "total"
 let currentMonth = 0;
 
 function ensureShapes(){
-  PEOPLE.forEach(id=>{
-    if(!people[id]){ people[id] = freshPerson(); return; }
+  peopleOrder = peopleOrder.filter(id=> !!people[id]);
+  peopleOrder.forEach(id=>{
     const p = people[id];
+    if(!p.name) p.name = id;
     if(!Array.isArray(p.EXP_CATS)) p.EXP_CATS = defaultExpCats();
     if(!Array.isArray(p.INVEST_CATS)) p.INVEST_CATS = defaultInvestCats();
     if(!p.params) p.params = {iva:0.21, irpf:0.07, dizimo:0.10};
@@ -533,29 +529,60 @@ function ensureShapes(){
       if(!Array.isArray(m.compras)) m.compras = Array.from({length: m.weeks.length}, ()=>0);
     });
   });
+  selectedForTotal = selectedForTotal.filter(id=> !!people[id]);
+  if(currentPerson !== 'total' && !people[currentPerson]){
+    currentPerson = peopleOrder[0] || 'total';
+  }
 }
+
+// Normaliza qualquer geração anterior do formato salvo para o formato atual
 function normalizeSavedData(data){
   if(!data) return null;
-  if(data.people){
+
+  // geração atual: pessoas dinâmicas com peopleOrder
+  if(data.people && Array.isArray(data.peopleOrder)){
     return {
       people: data.people,
-      currentPerson: data.currentPerson || "matheus",
+      peopleOrder: data.peopleOrder,
+      selectedForTotal: Array.isArray(data.selectedForTotal) ? data.selectedForTotal : data.peopleOrder.slice(),
+      currentPerson: data.currentPerson || (data.peopleOrder[0] || 'total'),
       currentMonth: Number.isInteger(data.currentMonth) ? data.currentMonth : 0,
       savedAt: data.savedAt || null,
     };
   }
-  if(Array.isArray(data.state)){
-    const base = freshPerson();
+
+  // geração anterior: people fixo {matheus, eduarda}, sem nome, aba "casal"
+  if(data.people && !Array.isArray(data.state)){
+    const ids = Object.keys(data.people);
+    const ppl = {};
+    ids.forEach(id=>{
+      ppl[id] = data.people[id];
+      if(!ppl[id].name) ppl[id].name = id === 'matheus' ? 'Matheus' : (id === 'eduarda' ? 'Eduarda' : id);
+    });
     return {
-      people: {
-        matheus: {
-          params: data.params || base.params,
-          EXP_CATS: data.EXP_CATS || base.EXP_CATS,
-          INVEST_CATS: data.INVEST_CATS || base.INVEST_CATS,
-          state: data.state,
-        },
-        eduarda: freshPerson(),
-      },
+      people: ppl,
+      peopleOrder: ids,
+      selectedForTotal: ids.slice(),
+      currentPerson: (!data.currentPerson || data.currentPerson === 'casal') ? (ids[0] || 'total') : data.currentPerson,
+      currentMonth: Number.isInteger(data.currentMonth) ? data.currentMonth : 0,
+      savedAt: data.savedAt || null,
+    };
+  }
+
+  // geração original: uma pessoa só, formato totalmente plano
+  if(Array.isArray(data.state)){
+    const base = freshPerson("Matheus");
+    const matheus = {
+      name: "Matheus",
+      params: data.params || base.params,
+      EXP_CATS: data.EXP_CATS || base.EXP_CATS,
+      INVEST_CATS: data.INVEST_CATS || base.INVEST_CATS,
+      state: data.state,
+    };
+    return {
+      people: { matheus },
+      peopleOrder: ["matheus"],
+      selectedForTotal: ["matheus"],
       currentPerson: "matheus",
       currentMonth: Number.isInteger(data.currentMonth) ? data.currentMonth : 0,
       savedAt: data.savedAt || null,
@@ -563,11 +590,20 @@ function normalizeSavedData(data){
   }
   return null;
 }
+function applyNormalized(norm){
+  people = norm.people;
+  peopleOrder = norm.peopleOrder;
+  selectedForTotal = norm.selectedForTotal;
+  currentPerson = norm.currentPerson;
+  currentMonth = norm.currentMonth;
+  lastLocalSavedAt = norm.savedAt;
+  ensureShapes();
+}
 
 function saveState(){
   try{
     const now = new Date().toISOString();
-    const payload = { people, currentPerson, currentMonth, savedAt: now };
+    const payload = { people, peopleOrder, selectedForTotal, currentPerson, currentMonth, savedAt: now };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     lastLocalSavedAt = now;
     flashSaveStatus("Salvo às " + new Date().toLocaleTimeString('pt-BR', {hour:'2-digit', minute:'2-digit'}));
@@ -580,22 +616,16 @@ function saveState(){
 function loadState(){
   try{
     let raw = localStorage.getItem(STORAGE_KEY);
-    let migratedFromLegacy = false;
-    if(!raw){
-      raw = localStorage.getItem(STORAGE_KEY_LEGACY);
-      migratedFromLegacy = !!raw;
-    }
+    let migrated = false;
+    if(!raw){ raw = localStorage.getItem(STORAGE_KEY_V2); migrated = !!raw; }
+    if(!raw){ raw = localStorage.getItem(STORAGE_KEY_V1); migrated = !!raw; }
     if(!raw) return false;
     const data = JSON.parse(raw);
     const norm = normalizeSavedData(data);
     if(!norm) return false;
-    people = norm.people;
-    currentPerson = norm.currentPerson;
-    currentMonth = norm.currentMonth;
-    lastLocalSavedAt = norm.savedAt;
-    ensureShapes();
-    if(migratedFromLegacy){
-      flashSaveStatus("Seus dados anteriores foram migrados para \"Matheus\"", 5000);
+    applyNormalized(norm);
+    if(migrated){
+      flashSaveStatus("Seus dados anteriores foram migrados", 5000);
       saveState();
     } else if(norm.savedAt){
       const d = new Date(norm.savedAt);
@@ -637,21 +667,20 @@ function computeFor(personId, monthIdx){
   const p = people[personId];
   return computeMonth(p.state[monthIdx], p.params);
 }
-function computeCasal(monthIdx){
-  const cm = computeFor('matheus', monthIdx);
-  const ce = computeFor('eduarda', monthIdx);
-  const keys = ['bruto','iva','irpf','dizimo','retido','liquido','contasTotal','investTotal','comprasTotal','saldo'];
-  const casal = {};
-  keys.forEach(k=> casal[k] = cm[k]+ce[k]);
-  return {matheus:cm, eduarda:ce, casal};
+const TOTAL_KEYS = ['bruto','iva','irpf','dizimo','retido','liquido','contasTotal','investTotal','comprasTotal','saldo'];
+function computeCombined(monthIdx, ids){
+  const results = ids.map(id => ({id, name: people[id].name, c: computeFor(id, monthIdx)}));
+  const total = {};
+  TOTAL_KEYS.forEach(k=> total[k] = results.reduce((a,r)=>a+r.c[k],0));
+  return {results, total};
 }
 function activeMonthCompute(){
-  if(currentPerson === 'casal') return computeCasal(currentMonth).casal;
+  if(currentPerson === 'total') return computeCombined(currentMonth, selectedForTotal).total;
   return computeFor(currentPerson, currentMonth);
 }
 function activeYearTotals(){
-  if(currentPerson === 'casal'){
-    return MONTHS.map((_,i)=> computeCasal(i).casal);
+  if(currentPerson === 'total'){
+    return MONTHS.map((_,i)=> computeCombined(i, selectedForTotal).total);
   }
   const p = people[currentPerson];
   return p.state.map(m=> computeMonth(m, p.params));
@@ -674,7 +703,6 @@ document.getElementById('btnTheme').addEventListener('click', ()=>{
   applyTheme(current === 'dark' ? 'light' : 'dark');
 });
 
-// ---- anéis de progresso ----
 function drawGauge(svgId, pct, colorVar){
   const svg = document.getElementById(svgId);
   const size=120, stroke=10, r=(size-stroke)/2, cx=size/2, cy=size/2;
@@ -693,8 +721,78 @@ function drawGauge(svgId, pct, colorVar){
 
 let trendChart, taxChart;
 
-function buildCasalTable(){
-  const {matheus:cm, eduarda:ce, casal:cc} = computeCasal(currentMonth);
+// ---- pessoas: criar / remover ----
+function addPerson(){
+  const name = prompt("Nome da nova pessoa:");
+  if(name === null || !name.trim()) return;
+  const id = uniquePersonId(slugify(name));
+  people[id] = freshPerson(name.trim());
+  peopleOrder.push(id);
+  selectedForTotal.push(id);
+  currentPerson = id;
+  buildUI();
+  saveState();
+}
+function removePerson(id){
+  if(!people[id]) return;
+  if(!confirm(`Remover "${people[id].name}" e todos os dados dela(e)? Essa ação não pode ser desfeita.`)) return;
+  delete people[id];
+  peopleOrder = peopleOrder.filter(x=>x!==id);
+  selectedForTotal = selectedForTotal.filter(x=>x!==id);
+  currentPerson = peopleOrder[0] || 'total';
+  buildUI();
+  saveState();
+}
+document.getElementById('btnAddPerson').addEventListener('click', addPerson);
+document.getElementById('btnRemovePerson').addEventListener('click', ()=>{
+  if(currentPerson !== 'total') removePerson(currentPerson);
+});
+
+function renderPersonRail(){
+  const rail = document.getElementById('personRail');
+  rail.innerHTML = '';
+  peopleOrder.forEach(id=>{
+    const b = document.createElement('button');
+    b.textContent = people[id].name;
+    b.dataset.person = id;
+    b.className = id===currentPerson ? 'active' : '';
+    b.addEventListener('click', ()=>{ currentPerson=id; buildUI(); });
+    rail.appendChild(b);
+  });
+  const totalBtn = document.createElement('button');
+  totalBtn.textContent = 'Total';
+  totalBtn.dataset.person = 'total';
+  totalBtn.className = currentPerson==='total' ? 'active' : '';
+  totalBtn.addEventListener('click', ()=>{ currentPerson='total'; buildUI(); });
+  rail.appendChild(totalBtn);
+}
+
+function renderTotalPicker(){
+  const box = document.getElementById('totalPicker');
+  if(peopleOrder.length === 0){
+    box.innerHTML = '<p class="hint" style="margin:0;">Nenhuma pessoa cadastrada ainda. Toque no botão "+" ao lado das abas para criar a primeira.</p>';
+    return;
+  }
+  box.innerHTML = peopleOrder.map(id=>{
+    const checked = selectedForTotal.includes(id) ? 'checked' : '';
+    return `<label class="pick-chip">
+      <input type="checkbox" data-total-pick="${id}" ${checked}>
+      ${people[id].name}
+    </label>`;
+  }).join('');
+  box.querySelectorAll('[data-total-pick]').forEach(cb=>{
+    cb.addEventListener('change', e=>{
+      const id = e.target.dataset.totalPick;
+      if(e.target.checked){ if(!selectedForTotal.includes(id)) selectedForTotal.push(id); }
+      else { selectedForTotal = selectedForTotal.filter(x=>x!==id); }
+      updateOutputs();
+    });
+  });
+}
+
+function buildTotalTable(){
+  const ids = selectedForTotal.filter(id=>people[id]);
+  const {results, total} = computeCombined(currentMonth, ids);
   const ROWS = [
     ['bruto','Ganho bruto'],
     ['iva','IVA'],
@@ -707,36 +805,44 @@ function buildCasalTable(){
     ['comprasTotal','Compras'],
     ['saldo','Saldo do mês'],
   ];
-  const tbody = document.getElementById('casalBody');
-  tbody.innerHTML = ROWS.map(([key,label])=>{
+  const wrap = document.getElementById('totalTableWrap');
+  if(ids.length === 0){
+    wrap.innerHTML = '<p class="hint" style="margin:0;">Selecione ao menos uma pessoa acima para ver o cálculo combinado.</p>';
+    return;
+  }
+  const head = '<tr><th style="text-align:left;"></th>' + results.map(r=>`<th>${r.name}</th>`).join('') + '<th>Total</th></tr>';
+  const body = ROWS.map(([key,label])=>{
     const isTotal = key==='saldo';
+    const cells = results.map(r=>`<td>${fmt(r.c[key])}</td>`).join('');
     return `<tr${isTotal?' class="total"':''}>
-      <td>${label}</td>
-      <td>${fmt(cm[key])}</td>
-      <td>${fmt(ce[key])}</td>
-      <td style="color:var(--blue); font-weight:700;">${fmt(cc[key])}</td>
+      <td>${label}</td>${cells}
+      <td style="color:var(--blue); font-weight:700;">${fmt(total[key])}</td>
     </tr>`;
   }).join('');
+  wrap.innerHTML = `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
 
 function buildUI(){
-  const casalMode = currentPerson === 'casal';
+  ensureShapes();
+  const totalMode = currentPerson === 'total';
 
-  document.querySelectorAll('#personRail button').forEach(b=> b.classList.toggle('active', b.dataset.person===currentPerson));
+  renderPersonRail();
   document.querySelectorAll('#monthRail button').forEach((b,i)=> b.classList.toggle('active', i===currentMonth));
 
-  document.getElementById('editPanels').style.display = casalMode ? 'none' : '';
-  document.getElementById('casalPanel').style.display = casalMode ? '' : 'none';
+  document.getElementById('editPanels').style.display = totalMode ? 'none' : '';
+  document.getElementById('totalPanel').style.display = totalMode ? '' : 'none';
+  document.getElementById('btnRemovePerson').style.display = totalMode ? 'none' : 'inline-block';
 
-  const label = casalMode ? 'Casal' : PEOPLE_LABELS[currentPerson];
+  const label = totalMode ? 'Total' : (people[currentPerson] ? people[currentPerson].name : '—');
   document.getElementById('mainTitle').textContent = label;
-  document.getElementById('subTitle').textContent = casalMode ? 'Resumo combinado do casal' : 'Controle financeiro pessoal';
+  document.getElementById('subTitle').textContent = totalMode ? 'Resumo combinado das pessoas selecionadas' : 'Controle financeiro pessoal';
   document.getElementById('chartTrendTitle').textContent = 'Bruto × líquido × contas — ano — ' + label;
   document.getElementById('chartTaxTitle').textContent = 'Reservas fiscais — ano — ' + label;
 
-  if(casalMode){
-    document.getElementById('casalTitle').textContent = 'Resumo do casal — ' + MONTHS[currentMonth];
-    buildCasalTable();
+  if(totalMode){
+    document.getElementById('totalTitle').textContent = 'Total combinado — ' + MONTHS[currentMonth];
+    renderTotalPicker();
+    buildTotalTable();
   } else {
     const p = people[currentPerson];
     const m = p.state[currentMonth];
@@ -816,7 +922,7 @@ function buildUI(){
 
 function updateOutputs(){
   const c = activeMonthCompute();
-  const casalMode = currentPerson === 'casal';
+  const totalMode = currentPerson === 'total';
 
   drawGauge('gaugeLiquido', c.bruto? c.liquido/c.bruto : 0, "--blue");
   drawGauge('gaugeRetido', c.bruto? c.retido/c.bruto : 0, "--orange");
@@ -830,8 +936,8 @@ function updateOutputs(){
   valSaldo.textContent = fmt(c.saldo);
   valSaldo.style.color = c.saldo>=0 ? "var(--green)" : "var(--red)";
 
-  if(casalMode){
-    buildCasalTable();
+  if(totalMode){
+    buildTotalTable();
   } else {
     const tbody = document.getElementById('weeksBody');
     const rowsEls = tbody.querySelectorAll('tr');
@@ -856,6 +962,9 @@ function updateOutputs(){
 
   const yearTotals = activeYearTotals();
   const saldoAno = yearTotals.reduce((a,y)=>a+y.saldo,0);
+  const odoEl = document.getElementById('odoValue');
+  odoEl.textContent = fmt(saldoAno);
+  odoEl.style.color = saldoAno>=0 ? "var(--green)" : "var(--red)";
 
   const labels = MONTHS.map(x=>x.slice(0,3));
   const brutoArr = yearTotals.map(y=>y.bruto);
@@ -910,17 +1019,10 @@ function updateOutputs(){
                 y:{stacked:true, ticks:{color:tickColor}, grid:{color:gridColor}}}}
     });
   }
-
-  const odoEl = document.getElementById('odoValue');
-  if(odoEl){
-    odoEl.textContent = fmt(saldoAno);
-    odoEl.style.color = saldoAno>=0 ? "var(--green)" : "var(--red)";
-  }
 }
 
-// ---- adicionar / remover categorias (por pessoa) ----
 function addExpenseCategory(){
-  if(currentPerson==='casal') return;
+  if(currentPerson==='total') return;
   const label = prompt("Nome do novo gasto (ex: Seguro do carro):");
   if(label === null || !label.trim()) return;
   const p = people[currentPerson];
@@ -931,7 +1033,7 @@ function addExpenseCategory(){
   saveState();
 }
 function removeExpenseCategory(key){
-  if(currentPerson==='casal') return;
+  if(currentPerson==='total') return;
   if(!confirm("Remover esta categoria de gasto de todos os meses?")) return;
   const p = people[currentPerson];
   p.EXP_CATS = p.EXP_CATS.filter(c=>c.key!==key);
@@ -940,7 +1042,7 @@ function removeExpenseCategory(key){
   saveState();
 }
 function addInvestmentCategory(){
-  if(currentPerson==='casal') return;
+  if(currentPerson==='total') return;
   const label = prompt("Nome do novo investimento (ex: Tesouro Direto, Ações, Cripto):");
   if(label === null || !label.trim()) return;
   const p = people[currentPerson];
@@ -951,7 +1053,7 @@ function addInvestmentCategory(){
   saveState();
 }
 function removeInvestmentCategory(key){
-  if(currentPerson==='casal') return;
+  if(currentPerson==='total') return;
   if(!confirm("Remover este investimento de todos os meses?")) return;
   const p = people[currentPerson];
   p.INVEST_CATS = p.INVEST_CATS.filter(c=>c.key!==key);
@@ -964,13 +1066,6 @@ document.getElementById('btnAddGasto').addEventListener('click', addExpenseCateg
 document.getElementById('btnAddInvestimento').addEventListener('click', addInvestmentCategory);
 document.getElementById('btnSalvar').addEventListener('click', saveState);
 
-document.querySelectorAll('#personRail button').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    currentPerson = btn.dataset.person;
-    buildUI();
-  });
-});
-
 const rail = document.getElementById('monthRail');
 MONTHS.forEach((m,i)=>{
   const b = document.createElement('button');
@@ -981,7 +1076,7 @@ MONTHS.forEach((m,i)=>{
 
 ['pIva','pIrpf','pDizimo'].forEach(id=>{
   document.getElementById(id).addEventListener('input', ()=>{
-    if(currentPerson === 'casal') return;
+    if(currentPerson === 'total') return;
     const p = people[currentPerson];
     p.params.iva = (parseFloat(document.getElementById('pIva').value)||0)/100;
     p.params.irpf = (parseFloat(document.getElementById('pIrpf').value)||0)/100;
@@ -994,7 +1089,6 @@ loadState();
 buildUI();
 document.getElementById('btnTheme').textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙';
 
-// ---- sincronização (Firebase) ----
 document.getElementById('btnSync').addEventListener('click', ()=>{
   connectSync(document.getElementById('syncCode').value);
 });
@@ -1004,7 +1098,6 @@ if(savedSyncCode){
   connectSync(savedSyncCode);
 }
 
-// registra o service worker (só se o arquivo existir nesse domínio)
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
     fetch('service-worker.js', {method:'HEAD'})
