@@ -275,16 +275,16 @@
             <td class="computed" id="wkTotDizimo">€0</td><td class="computed" id="wkTotLiquido">€0</td></tr></tfoot>
         </table>
 
-        <div class="params">
-          <div class="param">
+        <div class="params" id="taxParamsBox">
+          <div class="param" id="paramIvaBox">
             <label>% IVA</label>
             <input type="number" id="pIva" step="0.1" value="21">
             <small>tipo geral Espanha 2026</small>
           </div>
-          <div class="param">
+          <div class="param" id="paramIrpfBox">
             <label>% IRPF</label>
             <input type="number" id="pIrpf" step="0.1" value="7">
-            <small>7% · 1º ano autônomo (+2 seguintes); 15% a partir do 4º ano</small>
+            <small id="irpfHint">7% · 1º ano autônomo (+2 seguintes); 15% a partir do 4º ano</small>
           </div>
           <div class="param">
             <label>% Dízimo</label>
@@ -292,6 +292,7 @@
             <small>&nbsp;</small>
           </div>
         </div>
+        <p class="hint" id="contratadoHint" style="display:none; margin-top:12px; margin-bottom:0;">Como pessoa contratada, o IVA não se aplica e o IRPF já é retido pela empresa antes do salário cair na conta — por isso preencha aqui o valor líquido já recebido.</p>
       </div>
 
       <div class="panel">
@@ -312,6 +313,26 @@
       </div>
     </div>
 
+    <div class="panel" id="gestoriaPanel" style="display:none;">
+      <div class="panel-head">
+        <h2 id="gestoriaTitle" style="margin:0;">Reserva trimestral — 1º Trimestre</h2>
+        <label class="pick-chip" style="cursor:pointer;">
+          <input type="checkbox" id="pGestoriaEnabled"> Paga gestoria
+        </label>
+      </div>
+      <p class="hint">Estimativa do que separar para a Agência Tributária e para a gestoria neste trimestre. Confirme os valores exatos com sua gestoria antes de declarar o Modelo 130/303 — isto não substitui aconselhamento fiscal profissional.</p>
+      <div class="params" style="margin-top:0; margin-bottom:16px;" id="gestoriaValorBox">
+        <div class="param">
+          <label>Gestoria mensal</label>
+          <input type="number" id="pGestoriaValor" step="1" value="0">
+          <small>Valor pago ao contador/gestoria por mês</small>
+        </div>
+      </div>
+      <table>
+        <tbody id="gestoriaBody"></tbody>
+      </table>
+    </div>
+
     <div class="panel">
       <h2 id="comprasTitle">Compras semanais — Janeiro</h2>
       <p class="hint">Preencha o gasto com compras (mercado, farmácia, etc.) de cada semana.</p>
@@ -324,6 +345,7 @@
   </div>
 
   <div class="panel" id="totalPanel" style="display:none;">
+
     <h2 id="totalTitle">Total combinado — Janeiro</h2>
     <p class="hint">Escolha quem entra no cálculo abaixo.</p>
     <div id="totalPicker" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px;"></div>
@@ -374,12 +396,19 @@ function freshPersonState(expCats, investCats){
     investimentos: Object.fromEntries(investCats.map(c=> [c.key, 0])),
   }));
 }
-function freshPerson(name){
+function freshPerson(name, opts){
+  opts = opts || {};
   const EXP_CATS = defaultExpCats();
   const INVEST_CATS = defaultInvestCats();
+  const tipo = opts.tipo === 'contratado' ? 'contratado' : 'autonomo';
+  const params = tipo === 'contratado'
+    ? {iva:0, irpf:0, dizimo:0.10}
+    : {iva:0.21, irpf: opts.irpf!=null ? opts.irpf : 0.07, dizimo:0.10};
   return {
     name: name || "",
-    params: {iva:0.21, irpf:0.07, dizimo:0.10},
+    tipo,
+    params,
+    gestoria: { enabled: !!opts.gestoriaEnabled, valor: opts.gestoriaValor || 0 },
     EXP_CATS,
     INVEST_CATS,
     state: freshPersonState(EXP_CATS, INVEST_CATS),
@@ -522,6 +551,8 @@ function ensureShapes(){
     if(!Array.isArray(p.EXP_CATS)) p.EXP_CATS = defaultExpCats();
     if(!Array.isArray(p.INVEST_CATS)) p.INVEST_CATS = defaultInvestCats();
     if(!p.params) p.params = {iva:0.21, irpf:0.07, dizimo:0.10};
+    if(!p.tipo) p.tipo = 'autonomo'; // pessoas migradas de versões antigas eram sempre tratadas como autônomas
+    if(!p.gestoria) p.gestoria = { enabled:false, valor:0 };
     if(!Array.isArray(p.state)) p.state = freshPersonState(p.EXP_CATS, p.INVEST_CATS);
     p.state.forEach(m=>{
       p.EXP_CATS.forEach(c=>{ if(!(c.key in m.contas)) m.contas[c.key] = 0; });
@@ -669,6 +700,24 @@ function computeFor(personId, monthIdx){
   return computeMonth(p.state[monthIdx], p.params);
 }
 const TOTAL_KEYS = ['bruto','iva','irpf','dizimo','retido','liquido','contasTotal','investTotal','comprasTotal','saldo'];
+
+// ---- reserva trimestral (autônomos): agrupa os 3 meses do trimestre atual ----
+const QUARTER_MONTHS = [[0,1,2],[3,4,5],[6,7,8],[9,10,11]];
+const QUARTER_LABELS = ['1º Trimestre (Jan–Mar)','2º Trimestre (Abr–Jun)','3º Trimestre (Jul–Set)','4º Trimestre (Out–Dez)'];
+function quarterIndexForMonth(monthIdx){ return Math.floor(monthIdx/3); }
+function computeQuarterReserve(personId, monthIdx){
+  const p = people[personId];
+  const qMonths = QUARTER_MONTHS[quarterIndexForMonth(monthIdx)];
+  let iva=0, irpf=0;
+  qMonths.forEach(mi=>{
+    const c = computeMonth(p.state[mi], p.params);
+    iva += c.iva; irpf += c.irpf;
+  });
+  const gestoriaMensal = (p.gestoria && p.gestoria.enabled) ? (p.gestoria.valor||0) : 0;
+  const gestoriaTrimestral = gestoriaMensal*3;
+  const totalReservar = iva + gestoriaTrimestral;
+  return {iva, irpf, gestoriaTrimestral, totalReservar, qMonths};
+}
 function computeCombined(monthIdx, ids){
   const results = ids.map(id => ({id, name: people[id].name, c: computeFor(id, monthIdx)}));
   const total = {};
@@ -726,8 +775,28 @@ let trendChart, taxChart;
 function addPerson(){
   const name = prompt("Nome da nova pessoa:");
   if(name === null || !name.trim()) return;
+
+  const isAutonomo = confirm(name.trim() + " é autônomo(a) / freelancer?\n\nOK = Autônomo(a)\nCancelar = Contratado(a) com salário fixo (CLT/nómina)");
+
   const id = uniquePersonId(slugify(name));
-  people[id] = freshPerson(name.trim());
+  let opts = {};
+
+  if(isAutonomo){
+    opts.tipo = 'autonomo';
+    const mais2anos = confirm("Atua como autônomo(a) há mais de 2 anos?\n\n(Se sim, a retenção de IRPF padrão é 15%. Se não — ou seja, está no 1º ano ou nos 2 seguintes — a retenção reduzida é 7%.)");
+    opts.irpf = mais2anos ? 0.15 : 0.07;
+    const pagaGestoria = confirm("Paga gestoria (contador/assessoria fiscal)?");
+    if(pagaGestoria){
+      const valorStr = prompt("Qual o valor mensal da gestoria (€)?", "50");
+      const valor = parseFloat((valorStr||"").replace(',', '.'));
+      opts.gestoriaEnabled = true;
+      opts.gestoriaValor = isNaN(valor) ? 0 : valor;
+    }
+  } else {
+    opts.tipo = 'contratado';
+  }
+
+  people[id] = freshPerson(name.trim(), opts);
   peopleOrder.push(id);
   selectedForTotal.push(id);
   currentPerson = id;
@@ -823,6 +892,22 @@ function buildTotalTable(){
   wrap.innerHTML = `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
 
+function refreshGestoriaPanel(){
+  if(currentPerson === 'total') return;
+  const p = people[currentPerson];
+  if(!p || p.tipo !== 'autonomo') return;
+  const qIdx = quarterIndexForMonth(currentMonth);
+  const reserve = computeQuarterReserve(currentPerson, currentMonth);
+  document.getElementById('gestoriaTitle').textContent = 'Reserva trimestral — ' + QUARTER_LABELS[qIdx];
+  document.getElementById('gestoriaValorBox').style.display = p.gestoria.enabled ? '' : 'none';
+  document.getElementById('gestoriaBody').innerHTML = `
+    <tr><td>IVA do trimestre (a declarar — Modelo 303)</td><td>${fmt(reserve.iva)}</td></tr>
+    <tr><td>IRPF já retido no trimestre (adiantado — informativo)</td><td>${fmt(reserve.irpf)}</td></tr>
+    <tr><td>Gestoria do trimestre (3 meses)</td><td>${fmt(reserve.gestoriaTrimestral)}</td></tr>
+    <tr class="total"><td>Total a reservar/pagar no trimestre</td><td style="color:var(--blue); font-weight:700;">${fmt(reserve.totalReservar)}</td></tr>
+  `;
+}
+
 function buildUI(){
   ensureShapes();
   const totalMode = currentPerson === 'total';
@@ -847,10 +932,21 @@ function buildUI(){
   } else {
     const p = people[currentPerson];
     const m = p.state[currentMonth];
+    const isAutonomo = p.tipo === 'autonomo';
 
     document.getElementById('pIva').value = p.params.iva*100;
     document.getElementById('pIrpf').value = p.params.irpf*100;
     document.getElementById('pDizimo').value = p.params.dizimo*100;
+    document.getElementById('paramIvaBox').style.display = isAutonomo ? '' : 'none';
+    document.getElementById('paramIrpfBox').style.display = isAutonomo ? '' : 'none';
+    document.getElementById('contratadoHint').style.display = isAutonomo ? 'none' : '';
+
+    document.getElementById('gestoriaPanel').style.display = isAutonomo ? '' : 'none';
+    if(isAutonomo){
+      document.getElementById('pGestoriaEnabled').checked = !!p.gestoria.enabled;
+      document.getElementById('pGestoriaValor').value = p.gestoria.valor || 0;
+      refreshGestoriaPanel();
+    }
 
     document.getElementById('weeksTitle').textContent = 'Semanas — ' + label + ' — ' + MONTHS[currentMonth];
     const tbody = document.getElementById('weeksBody');
@@ -959,6 +1055,7 @@ function updateOutputs(){
     document.getElementById('expTotal').textContent = fmt(c.contasTotal);
     document.getElementById('investTotal').textContent = fmt(c.investTotal);
     document.getElementById('comprasTotalCell').textContent = fmt(c.comprasTotal);
+    refreshGestoriaPanel();
   }
 
   const yearTotals = activeYearTotals();
@@ -1084,6 +1181,17 @@ MONTHS.forEach((m,i)=>{
     p.params.dizimo = (parseFloat(document.getElementById('pDizimo').value)||0)/100;
     updateOutputs();
   });
+});
+
+document.getElementById('pGestoriaEnabled').addEventListener('change', e=>{
+  if(currentPerson === 'total') return;
+  people[currentPerson].gestoria.enabled = e.target.checked;
+  buildUI();
+});
+document.getElementById('pGestoriaValor').addEventListener('input', e=>{
+  if(currentPerson === 'total') return;
+  people[currentPerson].gestoria.valor = parseFloat(e.target.value)||0;
+  refreshGestoriaPanel();
 });
 
 loadState();
