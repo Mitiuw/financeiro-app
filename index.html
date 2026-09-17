@@ -13,14 +13,14 @@
 </script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Financeiro</title>
+<title>Grana</title>
 
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#f5f5f7" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Financeiro">
+<meta name="apple-mobile-web-app-title" content="Grana">
 <link rel="apple-touch-icon" sizes="192x192" href="icons/icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icons/icon-512.png">
 
@@ -188,20 +188,46 @@
 
   #totalPanel table td:not(:first-child), #totalPanel table th:not(:first-child){text-align:right;}
   #totalPanel table td:first-child{color:var(--text-secondary);}
+
+  /* ---- Modal (assistente de nova pessoa) ---- */
+  .modal-overlay{
+    position:fixed; inset:0; z-index:60; display:none; align-items:center; justify-content:center;
+    padding:20px; background:rgba(0,0,0,.45); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+  }
+  .modal-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg);
+    padding:26px 26px 22px; max-width:400px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,.35);
+  }
+  .modal-title{font-size:19px; font-weight:600; letter-spacing:-.01em; margin:0 0 4px;}
+  .modal-sub{font-size:14px; color:var(--text); margin:0 0 4px;}
+  .modal-hint{font-size:12.5px; color:var(--text-secondary); margin:0 0 16px;}
+  .modal-input{
+    width:100%; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm);
+    color:var(--text); font-family:var(--font); font-size:16px; padding:11px 13px; margin:14px 0 4px;
+  }
+  .modal-input:focus{outline:none; border-color:var(--blue); box-shadow:0 0 0 3px color-mix(in srgb, var(--blue) 18%, transparent);}
+  .modal-option{
+    display:flex; align-items:center; gap:12px; width:100%; text-align:left; margin-top:14px;
+    background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-md);
+    padding:13px 15px; cursor:pointer; font-family:var(--font); font-size:15px; color:var(--text); transition:.15s;
+  }
+  .modal-option:hover{border-color:var(--blue); background:var(--surface-3);}
+  .modal-option .num{
+    width:26px; height:26px; border-radius:50%; background:var(--blue); color:#fff; font-weight:700; font-size:13px;
+    display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  }
+  .modal-actions{display:flex; justify-content:space-between; align-items:center; margin-top:20px; gap:10px;}
 </style>
 </head>
 <body>
 
   <nav class="topbar">
     <div class="topbar-inner">
-      <span class="brand">Financeiro</span>
+      <span class="brand">Grana</span>
       <div class="topbar-actions">
         <span class="sync-dot" id="syncDot" title="Status da sincronização"></span>
         <button class="icon-btn" id="btnTheme" title="Alternar tema">🌙</button>
-        <div style="text-align:right;">
-          <button id="btnSalvar" class="btn-primary">Salvar</button>
-          <span id="saveStatus" class="save-status">&nbsp;</span>
-        </div>
+        <span id="saveStatus" class="save-status" style="margin-top:0;">&nbsp;</span>
       </div>
     </div>
   </nav>
@@ -366,6 +392,10 @@
   </div>
 
   <footer>Painel gerado a partir da sua planilha de controle financeiro.<br>Todos os valores são editáveis nesta sessão.</footer>
+</div>
+
+<div class="modal-overlay" id="personModalOverlay">
+  <div class="modal-card" id="personModalCard"></div>
 </div>
 
 <script>
@@ -677,6 +707,16 @@ function flashSaveStatus(msg, ms=2200){
   flashTimer = setTimeout(()=>{ el.textContent = "\u00A0"; }, ms);
 }
 
+// salvamento automático: dispara um pouco depois da última edição,
+// pra não gravar a cada tecla digitada
+let autosaveTimer;
+function scheduleAutosave(){
+  clearTimeout(flashTimer);
+  document.getElementById('saveStatus').textContent = "Salvando…";
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(saveState, 700);
+}
+
 const fmt = v => (v<0?"-":"") + "€" + Math.abs(Math.round(v)).toLocaleString('pt-BR');
 
 function computeWeek(bruto, p){
@@ -771,38 +811,141 @@ function drawGauge(svgId, pct, colorVar){
 
 let trendChart, taxChart;
 
-// ---- pessoas: criar / remover ----
-function addPerson(){
-  const name = prompt("Nome da nova pessoa:");
-  if(name === null || !name.trim()) return;
+// ---- pessoas: criar (via modal com opções numeradas) ----
+let personWizard = null;
 
-  const isAutonomo = confirm(name.trim() + " é autônomo(a) / freelancer?\n\nOK = Autônomo(a)\nCancelar = Contratado(a) com salário fixo (CLT/nómina)");
+function openPersonWizard(){
+  personWizard = { name:'', tipo:null, mais2anos:null, gestoriaEnabled:null, gestoriaValor:0 };
+  document.getElementById('personModalOverlay').style.display = 'flex';
+  renderWizardStep('name');
+}
+function closePersonWizard(){
+  document.getElementById('personModalOverlay').style.display = 'none';
+  personWizard = null;
+}
+document.getElementById('personModalOverlay').addEventListener('click', e=>{
+  if(e.target.id === 'personModalOverlay') closePersonWizard();
+});
 
-  const id = uniquePersonId(slugify(name));
+function renderWizardStep(step){
+  const card = document.getElementById('personModalCard');
+
+  if(step === 'name'){
+    card.innerHTML = `
+      <h3 class="modal-title">Nova pessoa</h3>
+      <p class="modal-sub">Qual o nome dela?</p>
+      <input type="text" class="modal-input" id="wizName" placeholder="Nome">
+      <div class="modal-actions">
+        <button class="btn-ghost" id="wizCancel">Cancelar</button>
+        <button class="btn-primary" id="wizNext">Continuar</button>
+      </div>`;
+    const inp = document.getElementById('wizName');
+    setTimeout(()=> inp.focus(), 0);
+    const go = ()=>{
+      const v = inp.value.trim();
+      if(!v){ inp.focus(); return; }
+      personWizard.name = v;
+      renderWizardStep('tipo');
+    };
+    inp.addEventListener('keydown', e=>{ if(e.key==='Enter') go(); });
+    document.getElementById('wizNext').addEventListener('click', go);
+    document.getElementById('wizCancel').addEventListener('click', closePersonWizard);
+
+  } else if(step === 'tipo'){
+    card.innerHTML = `
+      <h3 class="modal-title">${personWizard.name}</h3>
+      <p class="modal-sub">É autônomo(a) ou contratado(a)?</p>
+      <button class="modal-option" data-choice="autonomo"><span class="num">1</span> Autônomo(a) / freelancer</button>
+      <button class="modal-option" data-choice="contratado"><span class="num">2</span> Contratado(a) com salário fixo</button>
+      <div class="modal-actions"><button class="btn-ghost" id="wizCancel">Cancelar</button><span></span></div>`;
+    card.querySelectorAll('[data-choice]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        personWizard.tipo = btn.dataset.choice;
+        renderWizardStep(personWizard.tipo === 'autonomo' ? 'anos' : 'confirm');
+      });
+    });
+    document.getElementById('wizCancel').addEventListener('click', closePersonWizard);
+
+  } else if(step === 'anos'){
+    card.innerHTML = `
+      <h3 class="modal-title">${personWizard.name}</h3>
+      <p class="modal-sub">Atua como autônomo(a) há mais de 2 anos?</p>
+      <p class="modal-hint">Define a retenção de IRPF: 7% nos 3 primeiros anos, 15% depois.</p>
+      <button class="modal-option" data-choice="sim"><span class="num">1</span> Sim, há mais de 2 anos</button>
+      <button class="modal-option" data-choice="nao"><span class="num">2</span> Não, ainda estou nos 3 primeiros anos</button>
+      <div class="modal-actions"><button class="btn-ghost" id="wizBack">Voltar</button><span></span></div>`;
+    card.querySelectorAll('[data-choice]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        personWizard.mais2anos = btn.dataset.choice === 'sim';
+        renderWizardStep('gestoria');
+      });
+    });
+    document.getElementById('wizBack').addEventListener('click', ()=> renderWizardStep('tipo'));
+
+  } else if(step === 'gestoria'){
+    card.innerHTML = `
+      <h3 class="modal-title">${personWizard.name}</h3>
+      <p class="modal-sub">Paga gestoria (contador/assessoria fiscal)?</p>
+      <button class="modal-option" data-choice="sim"><span class="num">1</span> Sim</button>
+      <button class="modal-option" data-choice="nao"><span class="num">2</span> Não</button>
+      <div class="modal-actions"><button class="btn-ghost" id="wizBack">Voltar</button><span></span></div>`;
+    card.querySelectorAll('[data-choice]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        if(btn.dataset.choice === 'sim'){
+          personWizard.gestoriaEnabled = true;
+          renderWizardStep('gestoriaValor');
+        } else {
+          personWizard.gestoriaEnabled = false;
+          renderWizardStep('confirm');
+        }
+      });
+    });
+    document.getElementById('wizBack').addEventListener('click', ()=> renderWizardStep('anos'));
+
+  } else if(step === 'gestoriaValor'){
+    card.innerHTML = `
+      <h3 class="modal-title">${personWizard.name}</h3>
+      <p class="modal-sub">Qual o valor mensal da gestoria?</p>
+      <input type="number" class="modal-input" id="wizGestoriaValor" placeholder="€ por mês" value="50">
+      <div class="modal-actions">
+        <button class="btn-ghost" id="wizBack">Voltar</button>
+        <button class="btn-primary" id="wizNext">Continuar</button>
+      </div>`;
+    const inp = document.getElementById('wizGestoriaValor');
+    setTimeout(()=> inp.focus(), 0);
+    const go = ()=>{
+      personWizard.gestoriaValor = parseFloat(inp.value)||0;
+      renderWizardStep('confirm');
+    };
+    inp.addEventListener('keydown', e=>{ if(e.key==='Enter') go(); });
+    document.getElementById('wizNext').addEventListener('click', go);
+    document.getElementById('wizBack').addEventListener('click', ()=> renderWizardStep('gestoria'));
+
+  } else if(step === 'confirm'){
+    finishWizard();
+  }
+}
+
+function finishWizard(){
+  const w = personWizard;
+  const id = uniquePersonId(slugify(w.name));
   let opts = {};
-
-  if(isAutonomo){
+  if(w.tipo === 'autonomo'){
     opts.tipo = 'autonomo';
-    const mais2anos = confirm("Atua como autônomo(a) há mais de 2 anos?\n\n(Se sim, a retenção de IRPF padrão é 15%. Se não — ou seja, está no 1º ano ou nos 2 seguintes — a retenção reduzida é 7%.)");
-    opts.irpf = mais2anos ? 0.15 : 0.07;
-    const pagaGestoria = confirm("Paga gestoria (contador/assessoria fiscal)?");
-    if(pagaGestoria){
-      const valorStr = prompt("Qual o valor mensal da gestoria (€)?", "50");
-      const valor = parseFloat((valorStr||"").replace(',', '.'));
-      opts.gestoriaEnabled = true;
-      opts.gestoriaValor = isNaN(valor) ? 0 : valor;
-    }
+    opts.irpf = w.mais2anos ? 0.15 : 0.07;
+    if(w.gestoriaEnabled){ opts.gestoriaEnabled = true; opts.gestoriaValor = w.gestoriaValor; }
   } else {
     opts.tipo = 'contratado';
   }
-
-  people[id] = freshPerson(name.trim(), opts);
+  people[id] = freshPerson(w.name, opts);
   peopleOrder.push(id);
   selectedForTotal.push(id);
   currentPerson = id;
+  closePersonWizard();
   buildUI();
   saveState();
 }
+
 function removePerson(id){
   if(!people[id]) return;
   if(!confirm(`Remover "${people[id].name}" e todos os dados dela(e)? Essa ação não pode ser desfeita.`)) return;
@@ -813,7 +956,7 @@ function removePerson(id){
   buildUI();
   saveState();
 }
-document.getElementById('btnAddPerson').addEventListener('click', addPerson);
+document.getElementById('btnAddPerson').addEventListener('click', openPersonWizard);
 document.getElementById('btnRemovePerson').addEventListener('click', ()=>{
   if(currentPerson !== 'total') removePerson(currentPerson);
 });
@@ -856,6 +999,7 @@ function renderTotalPicker(){
       if(e.target.checked){ if(!selectedForTotal.includes(id)) selectedForTotal.push(id); }
       else { selectedForTotal = selectedForTotal.filter(x=>x!==id); }
       updateOutputs();
+      saveState();
     });
   });
 }
@@ -963,6 +1107,7 @@ function buildUI(){
       inp.addEventListener('input', e=>{
         m.weeks[+e.target.dataset.week] = parseFloat(e.target.value)||0;
         updateOutputs();
+        scheduleAutosave();
       });
     });
 
@@ -977,6 +1122,7 @@ function buildUI(){
       inp.addEventListener('input', e=>{
         m.compras[+e.target.dataset.compra] = parseFloat(e.target.value)||0;
         updateOutputs();
+        scheduleAutosave();
       });
     });
 
@@ -991,6 +1137,7 @@ function buildUI(){
       inp.addEventListener('input', e=>{
         m.contas[e.target.dataset.cat] = parseFloat(e.target.value)||0;
         updateOutputs();
+        scheduleAutosave();
       });
     });
     grid.querySelectorAll('[data-del-cat]').forEach(btn=>{
@@ -1007,6 +1154,7 @@ function buildUI(){
       inp.addEventListener('input', e=>{
         m.investimentos[e.target.dataset.invest] = parseFloat(e.target.value)||0;
         updateOutputs();
+        scheduleAutosave();
       });
     });
     investGrid.querySelectorAll('[data-del-invest]').forEach(btn=>{
@@ -1162,7 +1310,7 @@ function removeInvestmentCategory(key){
 
 document.getElementById('btnAddGasto').addEventListener('click', addExpenseCategory);
 document.getElementById('btnAddInvestimento').addEventListener('click', addInvestmentCategory);
-document.getElementById('btnSalvar').addEventListener('click', saveState);
+// (salvamento agora é automático — ver scheduleAutosave)
 
 const rail = document.getElementById('monthRail');
 MONTHS.forEach((m,i)=>{
@@ -1180,6 +1328,7 @@ MONTHS.forEach((m,i)=>{
     p.params.irpf = (parseFloat(document.getElementById('pIrpf').value)||0)/100;
     p.params.dizimo = (parseFloat(document.getElementById('pDizimo').value)||0)/100;
     updateOutputs();
+    scheduleAutosave();
   });
 });
 
@@ -1187,11 +1336,13 @@ document.getElementById('pGestoriaEnabled').addEventListener('change', e=>{
   if(currentPerson === 'total') return;
   people[currentPerson].gestoria.enabled = e.target.checked;
   buildUI();
+  saveState();
 });
 document.getElementById('pGestoriaValor').addEventListener('input', e=>{
   if(currentPerson === 'total') return;
   people[currentPerson].gestoria.valor = parseFloat(e.target.value)||0;
   refreshGestoriaPanel();
+  scheduleAutosave();
 });
 
 loadState();
